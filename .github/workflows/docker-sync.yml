@@ -1,10 +1,10 @@
-name: Docker Batch Sync
+name: Docker Ultimate Batch Sync
 
 on:
   workflow_dispatch:
     inputs:
-      image_list:
-        description: '镜像列表 (用逗号隔开，如 elasticsearch:7.4.2,redis:6.0)'
+      images:
+        description: '输入镜像列表(逗号分隔)，例如: redis:6.0,nginx:latest,mysql:8.0'
         required: true
         default: 'elasticsearch:7.4.2'
 
@@ -13,18 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Login to Aliyun
-        run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
-
-      - name: Batch Pull and Push
+        # 这里的 REGISTRY 变量对你所有仓库都通用
         run: |
-          # 将输入的列表按逗号拆分并循环
-          IFS=',' read -ra ADDR <<< "${{ github.event.inputs.image_list }}"
-          for i in "${ADDR[@]}"; do
-            # 这里的 i 就是 elasticsearch:7.4.2
-            TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/$i"
+          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
+
+      - name: Pull and Push Batch
+        run: |
+          # 将输入转换成数组
+          IFS=',' read -ra ADDR <<< "${{ github.event.inputs.images }}"
+          for IMAGE in "${ADDR[@]}"; do
+            # 这里的 IMAGE 包含镜像名和版本，如 redis:6.0
+            # 我们直接把镜像名提取出来作为阿里云的仓库名
+            TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/$IMAGE"
             
-            echo "正在搬运: $i -> $TARGET_IMAGE"
-            docker pull $i
-            docker tag $i $TARGET_IMAGE
+            echo "----------------------------------------"
+            echo "正在搬运: $IMAGE"
+            docker pull $IMAGE
+            docker tag $IMAGE $TARGET_IMAGE
             docker push $TARGET_IMAGE
+            echo "✅ 搬运完成: $TARGET_IMAGE"
           done

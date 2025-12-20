@@ -20,23 +20,14 @@ jobs:
         run: |
           echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
 
-      - name: Pull, Tag and Push
+     - name: Pull, Tag and Push
         run: |
-          # 1. 定义变量
+          # 打印调试信息（放心，Secrets 里的敏感部分会被 GitHub 自动打码 ***）
+          echo "正在尝试推送到这个地址: ${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          
           SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
-          # 这里会自动匹配你在阿里云建的仓库名
           TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
           
-          echo "🚀 正在从 Docker Hub 拉取: $SOURCE_IMAGE"
           docker pull $SOURCE_IMAGE
-          
-          echo "🏷️  正在打标签为: $TARGET_IMAGE"
           docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          
-          echo "📤 正在推送到阿里云..."
           docker push $TARGET_IMAGE
-          
-          echo "=========================================="
-          echo "✅ 同步成功！"
-          echo "虚拟机拉取命令：docker pull $TARGET_IMAGE"
-          echo "=========================================="

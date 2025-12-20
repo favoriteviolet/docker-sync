@@ -3,8 +3,12 @@ name: Docker Image Sync
 on:
   workflow_dispatch:
     inputs:
+      image_name:
+        description: '源镜像名'
+        required: true
+        default: 'elasticsearch'
       image_tag:
-        description: '版本号'
+        description: '镜像版本号'
         required: true
         default: '7.4.2'
 
@@ -12,18 +16,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Login to Aliyun
+      - name: Login to Aliyun Registry
         run: |
-          # 验证地址是否包含 http (不应该包含)
-          echo "Registry is: ${{ secrets.ALIYUN_REGISTRY }}"
           echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
 
-      - name: Pull and Push
+      - name: Pull, Tag and Push
         run: |
-          # 定义全路径地址
-          TARGET_ADDR="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/tingxi:${{ github.event.inputs.image_tag }}"
-          echo "Full Target Path: $TARGET_ADDR"
+          SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
           
-          docker pull elasticsearch:${{ github.event.inputs.image_tag }}
-          docker tag elasticsearch:${{ github.event.inputs.image_tag }} $TARGET_ADDR
-          docker push $TARGET_ADDR
+          # 【核心修改点】这里把仓库名写死为 tingxi
+          TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/tingxi:${{ github.event.inputs.image_tag }}"
+          
+          echo "正在拉取: $SOURCE_IMAGE"
+          docker pull $SOURCE_IMAGE
+          
+          echo "正在打标签为: $TARGET_IMAGE"
+          docker tag $SOURCE_IMAGE $TARGET_IMAGE
+          
+          echo "正在推送到阿里云..."
+          docker push $TARGET_IMAGE
+          
+          echo "✅ 同步成功！本地拉取命令：docker pull $TARGET_IMAGE"

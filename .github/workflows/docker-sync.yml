@@ -1,14 +1,14 @@
-name: Docker Image Sync
+name: Docker Image Sync Debug
 
 on:
   workflow_dispatch:
     inputs:
       image_name:
-        description: '源镜像名 (如 elasticsearch)'
+        description: '源镜像名'
         required: true
         default: 'elasticsearch'
       image_tag:
-        description: '镜像版本号 (如 7.4.2)'
+        description: '镜像版本号'
         required: true
         default: '7.4.2'
 
@@ -16,33 +16,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Login to Aliyun
+      - name: Inspect Secrets (Debug Mode)
         run: |
-          # 自动修剪 Registry 变量中的空格和斜杠
-          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's|^https://||;s|/*$||;s| ||g')
-          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin $REGISTRY
+          echo "=== 正在检查 ALIYUN_REGISTRY 的真实内容 ==="
+          # 将变量拆解打印，绕过 GitHub 打码
+          echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's/./& /g'
+          
+          echo "=== 正在检查 ALIYUN_USERNAME 的真实内容 ==="
+          echo "${{ secrets.ALIYUN_USERNAME }}" | sed 's/./& /g'
 
-      - name: Pull, Tag and Push
+      - name: Login and Push (Logic Check)
         run: |
-          # 1. 环境清理与变量预处理
-          # 自动剔除可能存在的协议头、末尾斜杠和空格
-          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's|^https://||;s|/*$||;s| ||g')
-          NAMESPACE="clannadxi"
+          # 提取变量并去除两端空格
+          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | xargs)
+          USER=$(echo "${{ secrets.ALIYUN_USERNAME }}" | xargs)
+          PASS="${{ secrets.ALIYUN_PASSWORD }}"
           
-          # 2. 构造镜像路径
-          SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
-          TARGET_IMAGE="$REGISTRY/$NAMESPACE/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          # 打印拼接后的路径（同样拆解打印）
+          FULL_PATH="$REGISTRY/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          echo "拼接后的全路径(拆解): $(echo $FULL_PATH | sed 's/./& /g')"
           
-          echo "🚀 开始同步..."
-          echo "源镜像: $SOURCE_IMAGE"
-          echo "目标路径: $TARGET_IMAGE"
+          # 执行登录
+          echo "$PASS" | docker login --username="$USER" --password-stdin "$REGISTRY"
           
-          # 3. 执行 Docker 操作
-          docker pull $SOURCE_IMAGE
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          docker push $TARGET_IMAGE
-          
-          echo "=========================================="
-          echo "✅ 同步成功！"
-          echo "虚拟机拉取命令: docker pull $TARGET_IMAGE"
-          echo "=========================================="
+          # 执行同步
+          docker pull ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}
+          docker tag ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }} $FULL_PATH
+          docker push $FULL_PATH

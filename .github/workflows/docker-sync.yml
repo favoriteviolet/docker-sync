@@ -1,29 +1,30 @@
-name: Docker Image Sync Final
+name: Docker Batch Sync
 
 on:
   workflow_dispatch:
     inputs:
-      image_name:
-        description: '镜像名'
+      image_list:
+        description: '镜像列表 (用逗号隔开，如 elasticsearch:7.4.2,redis:6.0)'
         required: true
-        default: 'elasticsearch'
-      image_tag:
-        description: '版本号'
-        required: true
-        default: '7.4.2'
+        default: 'elasticsearch:7.4.2'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Login
-        run: |
-          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
+      - name: Login to Aliyun
+        run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
 
-      - name: Push
+      - name: Batch Pull and Push
         run: |
-          # 只要你的 REGISTRY 只是域名，这里的拼接就是完美的
-          TARGET="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
-          docker pull ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}
-          docker tag ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }} $TARGET
-          docker push $TARGET
+          # 将输入的列表按逗号拆分并循环
+          IFS=',' read -ra ADDR <<< "${{ github.event.inputs.image_list }}"
+          for i in "${ADDR[@]}"; do
+            # 这里的 i 就是 elasticsearch:7.4.2
+            TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/$i"
+            
+            echo "正在搬运: $i -> $TARGET_IMAGE"
+            docker pull $i
+            docker tag $i $TARGET_IMAGE
+            docker push $TARGET_IMAGE
+          done

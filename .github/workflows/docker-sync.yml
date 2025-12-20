@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       image_name:
-        description: '源镜像名 (例如 elasticsearch)'
+        description: '源镜像名 (如 elasticsearch)'
         required: true
         default: 'elasticsearch'
       image_tag:
-        description: '镜像版本号 (例如 7.4.2)'
+        description: '镜像版本号 (如 7.4.2)'
         required: true
         default: '7.4.2'
 
@@ -16,27 +16,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Login to Aliyun Registry
+      - name: Login to Aliyun
         run: |
-          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
+          # 自动修剪 Registry 变量中的空格和斜杠
+          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's|^https://||;s|/*$||;s| ||g')
+          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin $REGISTRY
 
       - name: Pull, Tag and Push
         run: |
-          # 1. 显式定义变量，排除变量引用错误
-          # 我们暂时不用 secrets.ALIYUN_REGISTRY，直接写死域名测试
-          REGISTRY_DOMAIN="crpi-9q2wik9pdaw00xfg.cn-shenzhen.personal.cr.aliyuncs.com"
+          # 1. 环境清理与变量预处理
+          # 自动剔除可能存在的协议头、末尾斜杠和空格
+          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's|^https://||;s|/*$||;s| ||g')
           NAMESPACE="clannadxi"
-          REPO_NAME="${{ github.event.inputs.image_name }}"
-          TAG="${{ github.event.inputs.image_tag }}"
           
-          SOURCE_IMAGE="$REPO_NAME:$TAG"
-          TARGET_IMAGE="$REGISTRY_DOMAIN/$NAMESPACE/$REPO_NAME:$TAG"
+          # 2. 构造镜像路径
+          SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          TARGET_IMAGE="$REGISTRY/$NAMESPACE/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
           
-          echo "DEBUG: 目标全路径是 -> $TARGET_IMAGE"
+          echo "🚀 开始同步..."
+          echo "源镜像: $SOURCE_IMAGE"
+          echo "目标路径: $TARGET_IMAGE"
           
-          # 2. 执行操作
+          # 3. 执行 Docker 操作
           docker pull $SOURCE_IMAGE
           docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          
-          echo "正在执行推送..."
           docker push $TARGET_IMAGE
+          
+          echo "=========================================="
+          echo "✅ 同步成功！"
+          echo "虚拟机拉取命令: docker pull $TARGET_IMAGE"
+          echo "=========================================="

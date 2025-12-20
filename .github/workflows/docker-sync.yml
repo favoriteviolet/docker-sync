@@ -1,14 +1,14 @@
-name: Docker Image Sync Debug
+name: Docker Image Sync Final
 
 on:
   workflow_dispatch:
     inputs:
       image_name:
-        description: '源镜像名'
+        description: '镜像名'
         required: true
         default: 'elasticsearch'
       image_tag:
-        description: '镜像版本号'
+        description: '版本号'
         required: true
         default: '7.4.2'
 
@@ -16,30 +16,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect Secrets (Debug Mode)
+      - name: Login
         run: |
-          echo "=== 正在检查 ALIYUN_REGISTRY 的真实内容 ==="
-          # 将变量拆解打印，绕过 GitHub 打码
-          echo "${{ secrets.ALIYUN_REGISTRY }}" | sed 's/./& /g'
-          
-          echo "=== 正在检查 ALIYUN_USERNAME 的真实内容 ==="
-          echo "${{ secrets.ALIYUN_USERNAME }}" | sed 's/./& /g'
+          echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
 
-      - name: Login and Push (Logic Check)
+      - name: Push
         run: |
-          # 提取变量并去除两端空格
-          REGISTRY=$(echo "${{ secrets.ALIYUN_REGISTRY }}" | xargs)
-          USER=$(echo "${{ secrets.ALIYUN_USERNAME }}" | xargs)
-          PASS="${{ secrets.ALIYUN_PASSWORD }}"
-          
-          # 打印拼接后的路径（同样拆解打印）
-          FULL_PATH="$REGISTRY/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
-          echo "拼接后的全路径(拆解): $(echo $FULL_PATH | sed 's/./& /g')"
-          
-          # 执行登录
-          echo "$PASS" | docker login --username="$USER" --password-stdin "$REGISTRY"
-          
-          # 执行同步
+          # 只要你的 REGISTRY 只是域名，这里的拼接就是完美的
+          TARGET="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
           docker pull ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}
-          docker tag ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }} $FULL_PATH
-          docker push $FULL_PATH
+          docker tag ${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }} $TARGET
+          docker push $TARGET

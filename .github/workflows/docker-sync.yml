@@ -20,14 +20,23 @@ jobs:
         run: |
           echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login --username=${{ secrets.ALIYUN_USERNAME }} --password-stdin ${{ secrets.ALIYUN_REGISTRY }}
 
-     - name: Pull, Tag and Push
+      - name: Pull, Tag and Push
         run: |
-          # 打印调试信息（放心，Secrets 里的敏感部分会被 GitHub 自动打码 ***）
-          echo "正在尝试推送到这个地址: ${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          # 1. 显式定义变量，排除变量引用错误
+          # 我们暂时不用 secrets.ALIYUN_REGISTRY，直接写死域名测试
+          REGISTRY_DOMAIN="crpi-9q2wik9pdaw00xfg.cn-shenzhen.personal.cr.aliyuncs.com"
+          NAMESPACE="clannadxi"
+          REPO_NAME="${{ github.event.inputs.image_name }}"
+          TAG="${{ github.event.inputs.image_tag }}"
           
-          SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
-          TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          SOURCE_IMAGE="$REPO_NAME:$TAG"
+          TARGET_IMAGE="$REGISTRY_DOMAIN/$NAMESPACE/$REPO_NAME:$TAG"
           
+          echo "DEBUG: 目标全路径是 -> $TARGET_IMAGE"
+          
+          # 2. 执行操作
           docker pull $SOURCE_IMAGE
           docker tag $SOURCE_IMAGE $TARGET_IMAGE
+          
+          echo "正在执行推送..."
           docker push $TARGET_IMAGE

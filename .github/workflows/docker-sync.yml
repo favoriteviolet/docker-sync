@@ -29,7 +29,7 @@ jobs:
           SOURCE_IMAGE="${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
           
           # 【注意】请将下行中的“你的命名空间”替换为你阿里云上的真实命名空间
-          TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/${{ github.event.inputs.image_name }}:${{ github.event.inputs.image_tag }}"
+          TARGET_IMAGE="${{ secrets.ALIYUN_REGISTRY }}/clannadxi/tingxi:${{ github.event.inputs.image_tag }}"
           
           echo "正在从 Docker Hub 拉取: $SOURCE_IMAGE"
           docker pull $SOURCE_IMAGE
